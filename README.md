@@ -12,10 +12,7 @@ Este script reúne las optimizaciones razonables para una laptop con 4 GB de RAM
 - Optimiza el HDD.
 - No toca Defender, Firewall ni servicios esenciales.
 
-$script = "$env:USERPROFILE\Downloads\optimizar-windows10.ps1"
-Unblock-File -LiteralPath $script
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned -Force
-& $script
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\optimizar-windows10.ps1"
 
 Para instalar controladores descargados del fabricante:
 pnputil.exe /add-driver "C:\Drivers\*.inf" /subdirs /install
