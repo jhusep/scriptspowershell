@@ -72,11 +72,6 @@ if ($SoloLimpieza) {
     exit
 }
 
-if (-not (Es-Administrador)) {
-    Write-Host "Abre PowerShell como Administrador y vuelve a ejecutar el script."
-    exit 1
-}
-
 if ($Diagnostico) {
     Write-Host "`n=== INFORMACIÓN DEL EQUIPO ===" -ForegroundColor Cyan
 
@@ -120,6 +115,11 @@ if ($Diagnostico) {
 
     Write-Host "`nDiagnóstico terminado. No se hicieron cambios."
     exit
+}
+
+if (-not (Es-Administrador)) {
+    Write-Host "Abre PowerShell como Administrador y vuelve a ejecutar el script."
+    exit 1
 }
 
 if ($Restaurar) {
@@ -189,27 +189,27 @@ if ($Aplicar) {
 
     $visual = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects"
     New-Item $visual -Force | Out-Null
-    Set-ItemProperty $visual -Name VisualFXSetting -Type DWord -Value 2
+    New-ItemProperty -Path $visual -Name VisualFXSetting -PropertyType DWord -Value 2 -Force | Out-Null
 
     $desktop = "HKCU:\Control Panel\Desktop"
     Set-ItemProperty $desktop -Name MenuShowDelay -Value "50"
 
     $explorer = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
     New-Item $explorer -Force | Out-Null
-    Set-ItemProperty $explorer -Name TaskbarAnimations -Type DWord -Value 0
-    Set-ItemProperty $explorer -Name ListviewAlphaSelect -Type DWord -Value 0
-    Set-ItemProperty $explorer -Name ListviewShadow -Type DWord -Value 0
+    New-ItemProperty -Path $explorer -Name TaskbarAnimations -PropertyType DWord -Value 0 -Force | Out-Null
+    New-ItemProperty -Path $explorer -Name ListviewAlphaSelect -PropertyType DWord -Value 0 -Force | Out-Null
+    New-ItemProperty -Path $explorer -Name ListviewShadow -PropertyType DWord -Value 0 -Force | Out-Null
 
     $personalize = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
     New-Item $personalize -Force | Out-Null
-    Set-ItemProperty $personalize -Name EnableTransparency -Type DWord -Value 0
+    New-ItemProperty -Path $personalize -Name EnableTransparency -PropertyType DWord -Value 0 -Force | Out-Null
 
     # Desactivar aplicaciones modernas en segundo plano
     Log "Limitando aplicaciones en segundo plano..."
 
     $background = "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications"
     New-Item $background -Force | Out-Null
-    Set-ItemProperty $background -Name GlobalUserDisabled -Type DWord -Value 1
+    New-ItemProperty -Path $background -Name GlobalUserDisabled -PropertyType DWord -Value 1 -Force | Out-Null
 
     # Desactivar SysMain/Superfetch
     Log "Desactivando SysMain/Superfetch..."
@@ -261,10 +261,12 @@ if ($Aplicar) {
 
     foreach ($programa in $programasGPU) {
         if (Test-Path $programa) {
-            Set-ItemProperty `
+            New-ItemProperty `
                 -Path $gpuKey `
                 -Name $programa `
-                -Value "GpuPreference=2;"
+                -PropertyType String `
+                -Value "GpuPreference=2;" `
+                -Force -ErrorAction Stop | Out-Null
 
             Log "GPU configurada: $programa"
         }
@@ -356,11 +358,19 @@ if ($Aplicar) {
 
     $letra = $env:SystemDrive.TrimEnd(":")
 
-    Optimize-Volume `
-        -DriveLetter $letra `
-        -Defrag `
-        -Verbose
+    try {
+        Optimize-Volume `
+            -DriveLetter $letra `
+            -Defrag `
+            -Verbose `
+            -ErrorAction Stop
 
-    Log "Optimización terminada. Reinicia Windows."
-    Write-Host "`nProceso terminado. Reinicia el equipo." -ForegroundColor Green
+        Log "Optimización terminada. Reinicia Windows."
+        Write-Host "`nProceso terminado. Reinicia el equipo." -ForegroundColor Green
+    }
+    catch {
+        Log "No se pudo optimizar el disco: $($_.Exception.Message)"
+        exit 1
+    }
 }
+
