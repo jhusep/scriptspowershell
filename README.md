@@ -16,3 +16,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downlo
 
 Para instalar controladores descargados del fabricante:
 pnputil.exe /add-driver "C:\Drivers\*.inf" /subdirs /install
+
+
+Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/jhusep/scriptspowershell/main/optimizar-windows10.ps1' -OutFile "$env:USERPROFILE\Downloads\optimizar-windows10.ps1"
