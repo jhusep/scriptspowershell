@@ -62,8 +62,7 @@ function Limpiar-Temporales {
     Log "Limpieza terminada."
 }
 
-if (-not $Diagnostico -and -not $Aplicar -and
-    -not $SoloLimpieza -and -not $Restaurar) {
+if (-not $Diagnostico -and -not $Aplicar -and -not $SoloLimpieza -and -not $Restaurar) {
     $Diagnostico = $true
 }
 
@@ -261,14 +260,9 @@ if ($Aplicar) {
 
     foreach ($programa in $programasGPU) {
         if (Test-Path $programa) {
-            New-ItemProperty `
-                -Path $gpuKey `
-                -Name $programa `
-                -PropertyType String `
-                -Value "GpuPreference=2;" `
-                -Force -ErrorAction Stop | Out-Null
+            New-ItemProperty -Path $gpuKey -Name $programa -PropertyType String -Value 'GpuPreference=2;' -Force -ErrorAction Stop | Out-Null
 
-            Log "GPU configurada: $programa"
+            Log ('GPU configurada: {0}' -f $programa)
         }
     }
 
@@ -359,18 +353,14 @@ if ($Aplicar) {
     $letra = $env:SystemDrive.TrimEnd(":")
 
     try {
-        Optimize-Volume `
-            -DriveLetter $letra `
-            -Defrag `
-            -Verbose `
-            -ErrorAction Stop
+        Optimize-Volume -DriveLetter $letra -Defrag -Verbose -ErrorAction Stop
 
         Log "Optimización terminada. Reinicia Windows."
-        Write-Host "`nProceso terminado. Reinicia el equipo." -ForegroundColor Green
+        Write-Host ''
+        Write-Host 'Proceso terminado. Reinicia el equipo.' -ForegroundColor Green
     }
     catch {
         Log "No se pudo optimizar el disco: $($_.Exception.Message)"
         exit 1
     }
 }
-
