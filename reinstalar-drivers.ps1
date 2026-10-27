@@ -2,11 +2,11 @@
 
 [CmdletBinding()]
 param(
-    [ValidateSet('Preparar', 'Reinstalar', 'Recuperar')]
+    [ValidateSet('Preparar', 'Desinstalar', 'Recuperar')]
     [string]$Accion = 'Preparar',
-    [string]$CarpetaDrivers,
     [string]$CarpetaTrabajo = "$env:ProgramData\DriversFabricante\Reinstalacion",
-    [switch]$ConfirmarBorrado
+    [switch]$ConfirmarBorrado,
+    [switch]$IncluirClasesProtegidas
 )
 
 $ErrorActionPreference = 'Stop'
@@ -88,7 +88,7 @@ if ($Accion -eq 'Preparar') {
     $codigo = Invocar-PnpUtil -Argumentos @('/export-driver', '*', $respaldo)
     if ($codigo -ne 0) { throw ('No se pudo completar el respaldo (codigo {0}).' -f $codigo) }
     if (@(Get-ChildItem -LiteralPath $respaldo -Filter '*.inf' -Recurse -File).Count -eq 0) {
-        throw 'El respaldo no contiene archivos INF. No continues con Reinstalar.'
+        throw 'El respaldo no contiene archivos INF. No continues con Desinstalar.'
     }
 
     try {
@@ -100,7 +100,7 @@ if ($Accion -eq 'Preparar') {
     }
     Registrar ('Inventario para revisar: {0}' -f $inventario)
     Registrar ('Respaldo: {0}' -f $respaldo)
-    Registrar 'Descarga antes los controladores del fabricante y extrae sus archivos INF.'
+    Registrar 'Descarga antes los controladores del fabricante para instalarlos manualmente despues.'
     exit
 }
 
@@ -111,15 +111,10 @@ if ($Accion -eq 'Recuperar') {
 }
 
 if (-not $ConfirmarBorrado) {
-    throw 'Para reinstalar, usa -ConfirmarBorrado despues de revisar Inventario.csv y preparar los INF nuevos.'
+    throw 'Para desinstalar, usa -ConfirmarBorrado despues de revisar Inventario.csv, copiar el respaldo y descargar los controladores nuevos.'
 }
 if (-not (Test-Path -LiteralPath $inventario -PathType Leaf)) {
     throw 'Falta Inventario.csv. Ejecuta primero -Accion Preparar.'
-}
-if (-not $CarpetaDrivers) { throw 'Indica -CarpetaDrivers con los INF nuevos del fabricante.' }
-$carpetaNueva = (Resolve-Path -LiteralPath $CarpetaDrivers).ProviderPath
-if (@(Get-ChildItem -LiteralPath $carpetaNueva -Filter '*.inf' -Recurse -File).Count -eq 0) {
-    throw 'La carpeta de instaladores nuevos no contiene archivos INF.'
 }
 if (@(Get-ChildItem -LiteralPath $respaldo -Filter '*.inf' -Recurse -File).Count -eq 0) {
     throw 'Falta el respaldo exportado. Ejecuta primero -Accion Preparar.'
@@ -129,7 +124,18 @@ $seleccion = @(Import-Csv -LiteralPath $inventario | Where-Object { $_.Eliminar 
 if ($seleccion.Count -eq 0) { throw 'Inventario.csv no tiene paquetes marcados con Eliminar=Si.' }
 $actuales = @{}
 Get-WindowsDriver -Online | ForEach-Object { $actuales[$_.Driver] = $_ }
+$seleccion = @($seleccion | Sort-Object -Property @(
+    @{ Expression = {
+        if ($actuales.ContainsKey($_.Driver) -and
+            $clasesProtegidas -contains $actuales[$_.Driver].ClassName) { 1 } else { 0 }
+    } },
+    'Driver'
+))
 $fallos = 0
+
+if ($IncluirClasesProtegidas) {
+    Registrar 'Se intentaran quitar tambien las clases protegidas marcadas en el inventario, al final del proceso.'
+}
 
 foreach ($paquete in $seleccion) {
     if ($paquete.Driver -notmatch '^oem\d+\.inf$') {
@@ -142,7 +148,11 @@ foreach ($paquete in $seleccion) {
         continue
     }
     $claseActual = $actuales[$paquete.Driver].ClassName
-    if ([string]::IsNullOrWhiteSpace($claseActual) -or $clasesProtegidas -contains $claseActual) {
+    if ([string]::IsNullOrWhiteSpace($claseActual)) {
+        Registrar ('Clase desconocida; omitido: {0}' -f $paquete.Driver)
+        continue
+    }
+    if ($clasesProtegidas -contains $claseActual -and -not $IncluirClasesProtegidas) {
         Registrar ('Clase protegida; omitido: {0} ({1})' -f $paquete.Driver, $claseActual)
         continue
     }
@@ -152,20 +162,13 @@ foreach ($paquete in $seleccion) {
         Registrar ('No se pudo quitar {0} (codigo {1}).' -f $paquete.Driver, $codigo)
         $fallos++
     }
+    else {
+        Registrar ('Paquete retirado: {0}' -f $paquete.Driver)
+    }
 }
 
-try {
-    Instalar-DesdeCarpeta -Ruta $carpetaNueva
-}
-catch {
-    Registrar ('Fallo la instalacion nueva: {0}' -f $_.Exception.Message)
-    Registrar 'Intentando recuperar desde el respaldo...'
-    Instalar-DesdeCarpeta -Ruta $respaldo
-    throw 'Se recuperaron los paquetes del respaldo. Revisa el registro antes de reiniciar.'
-}
-
-Registrar ('Proceso terminado. Paquetes que no se pudieron quitar: {0}' -f $fallos)
+Registrar ('Desinstalacion terminada. Paquetes que no se pudieron quitar: {0}' -f $fallos)
 Get-PnpDevice -PresentOnly | Select-Object Status, Class, FriendlyName, InstanceId |
     Export-Csv -LiteralPath $estadoFinal -NoTypeInformation -Encoding UTF8
 Registrar ('Inventario posterior: {0}' -f $estadoFinal)
-Registrar 'Reinicia Windows y comprueba todos los dispositivos. Los instaladores EXE del fabricante se ejecutan por separado.'
+Registrar 'Instala manualmente los controladores descargados. Reinicia Windows y comprueba todos los dispositivos.'
