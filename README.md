@@ -36,6 +36,34 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downlo
 
 Si quieres optimizar el disco en esta ejecucion, agrega `-OptimizarDisco` al final del comando anterior. Reinicia Windows despues de aplicar cambios.
 
+## Quitar aplicaciones preinstaladas
+
+El script [quitar-apps-windows10.ps1](quitar-apps-windows10.ps1) revisa una lista **exacta** de aplicaciones opcionales de Windows 10: Cortana, apps de Xbox y Solitario, el acceso promocional Microsoft Office Hub, y apps como Noticias, Clima, Mapas, Skype, Visor 3D y Clipchamp. Sin `-Aplicar` solo muestra lo encontrado. Con `-Aplicar`, quita esos paquetes de las cuentas existentes y su aprovisionamiento para cuentas nuevas. Guarda un inventario y un resultado en `C:\ProgramData\LaptopLigera\Apps` e intenta crear un punto de restauracion.
+
+El script conserva Microsoft Store, Defender, Windows Update, busqueda de Windows, Fotos, Calculadora, Paint, OneDrive, controladores y servicios. No desinstala Office/Microsoft 365 de escritorio: muestra las instalaciones detectadas para revisarlas en **Configuracion > Aplicaciones > Aplicaciones y caracteristicas**, porque pueden ser versiones con licencia. Tampoco borra programas del fabricante sin identificar, archivos personales ni carpetas `WindowsApps`.
+
+Descarga la version actual ejecutando esta linea completa en PowerShell:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/jhusep/scriptspowershell/main/quitar-apps-windows10.ps1' -OutFile "$env:USERPROFILE\Downloads\quitar-apps-windows10.ps1"
+```
+
+Abre PowerShell **como administrador** y ejecuta primero el diagnostico:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\quitar-apps-windows10.ps1"
+```
+
+Si la lista coincide con lo que quieres quitar, ejecuta por separado:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\quitar-apps-windows10.ps1" -Aplicar
+```
+
+Puedes limitar la limpieza, por ejemplo, con `-Aplicar -Categorias Cortana,Office`. Las categorias disponibles son `Cortana`, `Xbox`, `Office` y `Opcionales`. Para conservar una app concreta dentro de una categoria, agrega su nombre exacto, por ejemplo `-Conservar Microsoft.YourPhone`. La desinstalacion puede borrar datos locales de esas apps y afectar a otras cuentas del equipo; revisa el diagnostico antes de aplicar. Algunas apps se pueden reinstalar desde Microsoft Store si siguen disponibles, y algunas pueden regresar con actualizaciones.
+
+Microsoft documenta la [desinstalacion de paquetes para todas las cuentas](https://learn.microsoft.com/en-us/powershell/module/appx/remove-appxpackage) y la [eliminacion del aprovisionamiento para cuentas nuevas](https://learn.microsoft.com/en-us/powershell/module/dism/remove-appxprovisionedpackage). Para Office de escritorio, sigue la [desinstalacion oficial de Microsoft 365 u Office](https://support.microsoft.com/en-us/office/lifecycle/officeinstall/uninstall-microsoft-365-or-office-from-a-pc).
+
 ## Controladores
 
 AMD recomienda instalar los controladores del fabricante del portatil para ambas GPU cuando se usan graficos conmutables. Si ya descargaste controladores `.inf` del fabricante en `C:\Drivers`, puedes instalarlos desde una consola de administrador con:
