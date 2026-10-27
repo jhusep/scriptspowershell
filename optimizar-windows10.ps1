@@ -1,4 +1,4 @@
-#requires -version 5.1
+﻿#requires -version 5.1
 
 param(
     [switch]$Diagnostico,
@@ -360,7 +360,7 @@ if ($Aplicar) {
         Write-Host 'Proceso terminado. Reinicia el equipo.' -ForegroundColor Green
     }
     catch {
-        Log "No se pudo optimizar el disco: $($_.Exception.Message)"
+        Log ('No se pudo optimizar el disco: {0}' -f $_.Exception.Message)
         exit 1
     }
 }
