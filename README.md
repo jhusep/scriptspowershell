@@ -44,11 +44,45 @@ AMD recomienda instalar los controladores del fabricante del portatil para ambas
 pnputil.exe /add-driver "C:\Drivers\*.inf" /subdirs /install
 ```
 
+### Reinstalacion de controladores de terceros
+
+El script [reinstalar-drivers.ps1](reinstalar-drivers.ps1) prepara un respaldo de **todos los paquetes OEM** (`oem*.inf`), crea un inventario y permite reinstalar desde archivos `.inf` del fabricante. Los controladores integrados de Windows no se eliminan. Las clases de arranque, disco, red y entrada quedan protegidas: quitarlas en bloque puede impedir que el equipo funcione. El script no usa `/force` ni bloquea Windows Update.
+
+Descarga el script antes de usarlo:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/jhusep/scriptspowershell/main/reinstalar-drivers.ps1' -OutFile "$env:USERPROFILE\Downloads\reinstalar-drivers.ps1"
+```
+
+1. Descarga y extrae antes los controladores para **tu modelo exacto de portatil** en una carpeta local, por ejemplo `C:\Drivers`. Deben existir archivos `.inf`; los instaladores `.exe` se ejecutan por separado. Para las dos GPU AMD, usa preferentemente el conjunto del fabricante del portatil.
+   Si antes ejecutaste `configurar-drivers-fabricante.ps1 -Aplicar`, usa su opcion `-Restaurar` para permitir de nuevo la busqueda de controladores en Windows Update.
+2. En PowerShell como administrador, prepara respaldo e inventario:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\reinstalar-drivers.ps1" -Accion Preparar
+```
+
+3. Revisa `C:\ProgramData\DriversFabricante\Reinstalacion\Inventario.csv`. La columna `Eliminar` viene en `Si` para paquetes de clases no protegidas y en `No` para clases protegidas. Cambia a `No` cualquier paquete adicional que quieras conservar. Copia la carpeta `Respaldo` a otra unidad antes de continuar.
+4. Con los controladores nuevos ya extraidos, reinstala:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\reinstalar-drivers.ps1" -Accion Reinstalar -CarpetaDrivers "C:\Drivers" -ConfirmarBorrado
+```
+
+Si necesitas volver a los paquetes exportados:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\reinstalar-drivers.ps1" -Accion Recuperar
+```
+
+El inventario, el respaldo y el registro quedan en `C:\ProgramData\DriversFabricante\Reinstalacion`. `pnputil` puede rechazar paquetes en uso; revisa `Operaciones.log` y el Administrador de dispositivos despues de reiniciar. Para una reinstalacion total del sistema y sus controladores integrados, usa una [instalacion limpia de Windows con el medio oficial](https://support.microsoft.com/en-us/windows/deployment/install-upgrade/reinstall-windows-with-the-installation-media).
+
 ## Criterios y fuentes
 
 - [AMD: Ryzen 3 3200U](https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-3000-series/amd-ryzen-3-3200u.html): CPU de 2 nucleos y 4 hilos con Vega 3 integrada.
 - [AMD: preferencias graficas en portatiles Windows 10](https://www.amd.com/en/resources/support-articles/faqs/GPU-110.html): la GPU integrada ahorra energia y la dedicada se puede elegir por aplicacion.
 - [AMD: graficos conmutables](https://www.amd.com/en/resources/support-articles/faqs/DH-017.html): recomienda controladores compatibles para ambas GPU, preferentemente del fabricante del portatil.
+- [Microsoft: PnPUtil](https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/pnputil-command-syntax): exportacion, desinstalacion e instalacion de paquetes OEM.
 - [Seagate: manual ST1000LM035](https://www.seagate.com/www-content/product-content/seagate-laptop-fam/mobile-hdd/en-us/docs/100775165b.pdf): HDD de 5400 rpm.
 - [Microsoft: mejorar el rendimiento del PC](https://support.microsoft.com/en-au/windows/experience/performance-optimization/tips-to-improve-pc-performance-in-windows): programas de inicio, espacio libre y efectos visuales son puntos de revision utiles.
 - [Microsoft: optimizar unidades](https://support.microsoft.com/en-us/windows/experience/storage-filemanagement/defragment-optimize-your-data-drives-in-windows): Windows optimiza las unidades automaticamente; `-OptimizarDisco` queda opcional.
