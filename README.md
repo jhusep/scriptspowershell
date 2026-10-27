@@ -11,3 +11,7 @@ Este script reúne las optimizaciones razonables para una laptop con 4 GB de RAM
 - Limpia temporales automáticamente cada 7 días.
 - Optimiza el HDD.
 - No toca Defender, Firewall ni servicios esenciales.
+
+
+Para instalar controladores descargados del fabricante:
+pnputil.exe /add-driver "C:\Drivers\*.inf" /subdirs /install
