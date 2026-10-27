@@ -44,9 +44,9 @@ AMD recomienda instalar los controladores del fabricante del portatil para ambas
 pnputil.exe /add-driver "C:\Drivers\*.inf" /subdirs /install
 ```
 
-### Reinstalacion de controladores de terceros
+### Desinstalacion de controladores de terceros
 
-El script [reinstalar-drivers.ps1](reinstalar-drivers.ps1) prepara un respaldo de **todos los paquetes OEM** (`oem*.inf`), crea un inventario y permite reinstalar desde archivos `.inf` del fabricante. Los controladores integrados de Windows no se eliminan. Las clases de arranque, disco, red y entrada quedan protegidas: quitarlas en bloque puede impedir que el equipo funcione. El script no usa `/force` ni bloquea Windows Update.
+El script [reinstalar-drivers.ps1](reinstalar-drivers.ps1) prepara un respaldo de **todos los paquetes OEM** (`oem*.inf`), crea un inventario y **desinstala los paquetes que marques**. La accion `Desinstalar` no instala ningun controlador: tu los instalaras manualmente despues. Los controladores integrados de Windows no se eliminan. Las clases de arranque, disco, red y entrada vienen protegidas porque quitarlas en bloque puede impedir que el equipo funcione. El script no usa `/force` ni bloquea Windows Update.
 
 Descarga el script antes de usarlo:
 
@@ -63,19 +63,23 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downlo
 ```
 
 3. Revisa `C:\ProgramData\DriversFabricante\Reinstalacion\Inventario.csv`. La columna `Eliminar` viene en `Si` para paquetes de clases no protegidas y en `No` para clases protegidas. Cambia a `No` cualquier paquete adicional que quieras conservar. Copia la carpeta `Respaldo` a otra unidad antes de continuar.
-4. Con los controladores nuevos ya extraidos, reinstala:
+4. Con los controladores nuevos ya descargados localmente, desinstala los paquetes marcados:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\reinstalar-drivers.ps1" -Accion Reinstalar -CarpetaDrivers "C:\Drivers" -ConfirmarBorrado
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\reinstalar-drivers.ps1" -Accion Desinstalar -ConfirmarBorrado
 ```
 
-Si necesitas volver a los paquetes exportados:
+5. Instala manualmente los controladores del fabricante desde sus instaladores `.exe`, o desde el Administrador de dispositivos si tienes archivos `.inf`. Para instalar todos los `.inf` de `C:\Drivers` manualmente desde una consola de administrador, puedes usar el comando `pnputil` mostrado arriba.
+
+Para intentar quitar tambien las clases protegidas, cambia sus filas a `Eliminar=Si` en `Inventario.csv` y agrega `-IncluirClasesProtegidas` al comando de desinstalacion. Hazlo solo si tienes acceso fisico al equipo y los instaladores locales: puedes perder teclado, raton, red o la capacidad de iniciar Windows. Aun asi, `pnputil` puede rechazar paquetes en uso. No es posible garantizar que Windows quede sin controladores mediante un script ejecutado dentro del propio sistema.
+
+Si necesitas volver a instalar los paquetes exportados del respaldo:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\reinstalar-drivers.ps1" -Accion Recuperar
 ```
 
-El inventario, el respaldo y el registro quedan en `C:\ProgramData\DriversFabricante\Reinstalacion`. `pnputil` puede rechazar paquetes en uso; revisa `Operaciones.log` y el Administrador de dispositivos despues de reiniciar. Para una reinstalacion total del sistema y sus controladores integrados, usa una [instalacion limpia de Windows con el medio oficial](https://support.microsoft.com/en-us/windows/deployment/install-upgrade/reinstall-windows-with-the-installation-media).
+El inventario, el respaldo y el registro quedan en `C:\ProgramData\DriversFabricante\Reinstalacion`. Revisa `Operaciones.log` y el Administrador de dispositivos despues de reiniciar. [Windows puede volver a detectar el hardware e instalar otro controlador disponible](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/using-device-manager-to-uninstall-devices-and-driver-packages). Para una reinstalacion total del sistema y sus controladores integrados, usa una [instalacion limpia de Windows con el medio oficial](https://support.microsoft.com/en-us/windows/deployment/install-upgrade/reinstall-windows-with-the-installation-media).
 
 ## Criterios y fuentes
 
