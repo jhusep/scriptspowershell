@@ -65,13 +65,17 @@ $seleccionados = @($catalogo | Where-Object {
 })
 $hallazgos = @(
     foreach ($objetivo in $seleccionados) {
-        foreach ($paquete in ($instalados | Where-Object { $_.Name -eq $objetivo.Nombre })) {
+        $coincidencias = @($instalados | Where-Object { $_.Name -eq $objetivo.Nombre })
+        $bloqueado = @($coincidencias | Where-Object {
+            $_.NonRemovable -or $_.IsFramework -or $_.IsResourcePackage
+        }).Count -gt 0
+        foreach ($paquete in $coincidencias) {
             [pscustomobject]@{
                 Categoria = $objetivo.Categoria
                 Nombre = $objetivo.Nombre
                 Tipo = 'Instalado'
                 Paquete = $paquete.PackageFullName
-                Removible = -not ($paquete.NonRemovable -or $paquete.IsFramework)
+                Removible = -not ($paquete.NonRemovable -or $paquete.IsFramework -or $paquete.IsResourcePackage)
             }
         }
         foreach ($paquete in ($provisionados | Where-Object { $_.DisplayName -eq $objetivo.Nombre })) {
@@ -80,7 +84,7 @@ $hallazgos = @(
                 Nombre = $objetivo.Nombre
                 Tipo = 'Provisionado'
                 Paquete = $paquete.PackageName
-                Removible = $true
+                Removible = -not $bloqueado
             }
         }
     }
@@ -142,7 +146,7 @@ foreach ($app in $hallazgos) {
     $detalle = ''
     if (-not $app.Removible) {
         $estado = 'Omitido'
-        $detalle = 'Windows marca el paquete como no removible o como framework.'
+        $detalle = 'Windows marca este paquete o su app instalada como no removible, framework o recurso.'
     }
     else {
         try {
