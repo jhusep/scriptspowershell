@@ -1,0 +1,10 @@
+# Metadatos de macOS
+._*
+.DS_Store
+
+# Archivos temporales de editores y scripts
+*.tmp
+*.temp
+*~
+*.swp
+*.swo
