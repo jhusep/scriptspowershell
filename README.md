@@ -1,18 +1,22 @@
 # Perfil Windows 10: Ryzen 3 3200U y HDD ST1000LM035
 
-Perfil conservador para un portatil con Ryzen 3 3200U, Radeon Vega 3 integrada, Radeon 530 dedicada y disco Seagate ST1000LM035. El script detecta la RAM y los componentes instalados; no presupone que sigan siendo los mismos. Se guarda en UTF-8 con BOM para Windows PowerShell 5.1.
+Perfil para un portatil con 4 GB de RAM, Ryzen 3 3200U, Radeon Vega 3 integrada, Radeon 530 dedicada y disco Seagate ST1000LM035. El script detecta la RAM y los componentes instalados; no presupone que sigan siendo los mismos. Se guarda en UTF-8 con BOM para Windows PowerShell 5.1.
 
 ## Que hace
 
-- Sin parametros: muestra CPU, RAM, GPU, discos y programas de inicio. No modifica nada.
+- Sin parametros: muestra CPU, RAM fisica utilizable, porcentaje en uso, procesos que mas memoria ocupan, GPU, discos, programas de inicio y estado de servicios. No modifica nada.
 - `-Aplicar`: intenta crear un punto de restauracion, conserva la paginacion automatica, reduce algunos efectos visuales y borra temporales del usuario con mas de 7 dias.
+- `-Aplicar -ServiciosMinimos`: ademas desactiva Windows Search (`WSearch`) y los servicios de Xbox (`XblAuthManager`, `XblGameSave`, `XboxNetApiSvc`, `XboxGipSvc`). Guarda sus estados originales en `C:\ProgramData\LaptopLigera\Servicios\ServiciosOriginales.csv` para `-Restaurar`.
+- `-Aplicar -ServiciosMinimos -SinSysMain`: tambien desactiva `SysMain`, solo para probar si este servicio causa mucha actividad en el HDD. Puede empeorar el tiempo de apertura de programas; compara antes y despues.
 - `-Aplicar -OptimizarDisco`: ademas analiza y optimiza la unidad del sistema segun el tipo de medio que detecte Windows. Es opcional porque Windows ya programa la optimizacion de unidades.
 - `-SoloLimpieza`: limpia solo temporales antiguos de la cuenta actual.
-- `-Restaurar`: restablece efectos visuales y revierte ajustes de servicios, Windows Update y tarea programada de versiones anteriores del script.
+- `-Restaurar`: restablece efectos visuales y los servicios desde el respaldo, y revierte ajustes de Windows Update y tarea programada de versiones anteriores del script.
 
 El perfil prioriza autonomia: no fuerza Chrome, Office ni otras aplicaciones a usar la Radeon 530. Para un juego concreto, selecciona **Alto rendimiento** en Configuracion > Sistema > Pantalla > Configuracion de graficos. Las tareas ligeras pueden seguir usando la Vega 3.
 
-No desactiva Defender, Windows Update, SysMain ni Windows Search. Tampoco instala controladores ni cambia el plan de energia. Revisa los programas de inicio del diagnostico y desactiva manualmente los que no necesites.
+No desactiva Defender, Windows Update, red, sonido ni controladores. `SysMain` permanece activo salvo que uses `-SinSysMain`. Tampoco cambia el plan de energia. Revisa los programas de inicio del diagnostico y desactiva manualmente los que no necesites desde Configuracion > Aplicaciones > Inicio.
+
+Desactivar `WSearch` detiene la indexacion, pero vuelve mas lenta o incompleta la busqueda de archivos y correo en algunas aplicaciones. [Microsoft explica](https://support.microsoft.com/en-us/windows/experience/performance-optimization/search-indexing-in-windows) que el modo de indexacion clasico equilibra velocidad y recursos; puedes usarlo si prefieres mantener Search. Con 4 GB y un HDD, el uso del 80% puede deberse a Brave u otras aplicaciones, a RAM reservada para la GPU o a procesos concretos. El diagnostico muestra la RAM utilizable y los procesos que mas ocupan; reducir servicios no garantiza un porcentaje determinado. [Microsoft recomienda 8 GB para mantener el rendimiento a largo plazo](https://support.microsoft.com/en-us/windows/all-about-computer-memory-79a75280-86ff-457c-bfbd-8439e7f7f88b).
 
 ## Uso
 
@@ -35,6 +39,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downlo
 ```
 
 Si quieres optimizar el disco en esta ejecucion, agrega `-OptimizarDisco` al final del comando anterior. Reinicia Windows despues de aplicar cambios.
+
+Para probar el perfil de servicios ligeros en este equipo, ejecuta como administrador:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\optimizar-windows10.ps1" -Aplicar -ServiciosMinimos
+```
+
+Si el HDD sigue ocupado constantemente, puedes repetirlo con `-SinSysMain` al final. Para devolver los servicios a su configuracion anterior, ejecuta `-Restaurar` desde la misma cuenta de administrador. Compara la memoria y los procesos con el diagnostico tras reiniciar. Para retirar apps Xbox preinstaladas, usa por separado [quitar-apps-windows10.ps1](quitar-apps-windows10.ps1).
 
 ## Quitar aplicaciones preinstaladas
 
