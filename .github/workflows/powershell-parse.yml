@@ -11,12 +11,15 @@ jobs:
         shell: powershell
         run: |
           if ($PSVersionTable.PSVersion.Major -ne 5) { throw 'Windows PowerShell 5.1 is required' }
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            "$PWD\optimizar-windows10.ps1", [ref]$tokens, [ref]$errors
-          ) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | Format-List *
-            exit 1
+          Get-ChildItem -Path $PWD -Filter '*.ps1' | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName, [ref]$tokens, [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              Write-Host "Errores de sintaxis en $($_.Name)"
+              $errors | Format-List *
+              exit 1
+            }
           }
