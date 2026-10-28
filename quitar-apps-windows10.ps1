@@ -51,12 +51,14 @@ if ($Aplicar -and -not $administrador) {
 }
 
 if ($administrador) {
-    $instalados = @(Get-AppxPackage -AllUsers)
+    $bundles = @(Get-AppxPackage -AllUsers -PackageTypeFilter Bundle)
+    $principales = @(Get-AppxPackage -AllUsers -PackageTypeFilter Main)
     $provisionados = @(Get-AppxProvisionedPackage -Online)
 }
 else {
     Write-Warning 'Se muestran solo las apps de esta cuenta. Abre PowerShell como administrador para ver todos los usuarios y las apps provisionadas.'
-    $instalados = @(Get-AppxPackage)
+    $bundles = @(Get-AppxPackage -PackageTypeFilter Bundle)
+    $principales = @(Get-AppxPackage -PackageTypeFilter Main)
     $provisionados = @()
 }
 
@@ -65,17 +67,25 @@ $seleccionados = @($catalogo | Where-Object {
 })
 $hallazgos = @(
     foreach ($objetivo in $seleccionados) {
-        $coincidencias = @($instalados | Where-Object { $_.Name -eq $objetivo.Nombre })
-        $bloqueado = @($coincidencias | Where-Object {
-            $_.NonRemovable -or $_.IsFramework -or $_.IsResourcePackage
-        }).Count -gt 0
-        foreach ($paquete in $coincidencias) {
+        $bundlesObjetivo = @($bundles | Where-Object { $_.Name -eq $objetivo.Nombre })
+        foreach ($paquete in $bundlesObjetivo) {
             [pscustomobject]@{
                 Categoria = $objetivo.Categoria
                 Nombre = $objetivo.Nombre
-                Tipo = 'Instalado'
+                Tipo = 'Bundle'
                 Paquete = $paquete.PackageFullName
-                Removible = -not ($paquete.NonRemovable -or $paquete.IsFramework -or $paquete.IsResourcePackage)
+                Removible = -not $paquete.NonRemovable
+            }
+        }
+        if ($bundlesObjetivo.Count -eq 0) {
+            foreach ($paquete in ($principales | Where-Object { $_.Name -eq $objetivo.Nombre })) {
+                [pscustomobject]@{
+                    Categoria = $objetivo.Categoria
+                    Nombre = $objetivo.Nombre
+                    Tipo = 'Main'
+                    Paquete = $paquete.PackageFullName
+                    Removible = -not $paquete.NonRemovable
+                }
             }
         }
         foreach ($paquete in ($provisionados | Where-Object { $_.DisplayName -eq $objetivo.Nombre })) {
@@ -84,7 +94,7 @@ $hallazgos = @(
                 Nombre = $objetivo.Nombre
                 Tipo = 'Provisionado'
                 Paquete = $paquete.PackageName
-                Removible = -not $bloqueado
+                Removible = $true
             }
         }
     }
@@ -96,6 +106,13 @@ if ($hallazgos.Count -gt 0) {
 }
 else {
     Write-Host 'No se encontraron paquetes de las categorias elegidas.'
+}
+
+if ($Categorias -contains 'Cortana') {
+    $cortanaSistema = @($principales | Where-Object { $_.Name -eq 'Microsoft.Windows.Cortana' })
+    if ($cortanaSistema.Count -gt 0) {
+        Write-Warning 'Se detecto Microsoft.Windows.Cortana, componente integrado con la busqueda en versiones antiguas de Windows 10. No se fuerza su eliminacion.'
+    }
 }
 
 $rutasOffice = @(
@@ -146,15 +163,22 @@ foreach ($app in $hallazgos) {
     $detalle = ''
     if (-not $app.Removible) {
         $estado = 'Omitido'
-        $detalle = 'Windows marca este paquete o su app instalada como no removible, framework o recurso.'
+        $detalle = 'Windows marca este paquete como no removible.'
     }
     else {
         try {
-            if ($app.Tipo -eq 'Instalado') {
-                Remove-AppxPackage -Package $app.Paquete -AllUsers -ErrorAction Stop
+            if ($app.Tipo -eq 'Provisionado') {
+                Remove-AppxProvisionedPackage -Online -PackageName $app.Paquete -ErrorAction Stop | Out-Null
             }
             else {
-                Remove-AppxProvisionedPackage -Online -PackageName $app.Paquete -ErrorAction Stop | Out-Null
+                $actual = @(Get-AppxPackage -AllUsers -Name $app.Nombre -PackageTypeFilter $app.Tipo -ErrorAction Stop |
+                    Where-Object { $_.PackageFullName -eq $app.Paquete })
+                if ($actual.Count -eq 0) {
+                    $estado = 'Ya eliminado'
+                }
+                else {
+                    Remove-AppxPackage -Package $app.Paquete -AllUsers -ErrorAction Stop
+                }
             }
         }
         catch {
@@ -170,11 +194,47 @@ foreach ($app in $hallazgos) {
         Estado = $estado
         Detalle = $detalle
     })
-    Write-Host ('{0}: {1} ({2})' -f $estado, $app.Nombre, $app.Tipo)
+    if ($estado -eq 'Error') {
+        Write-Warning ('Error al quitar {0} ({1}): {2}' -f $app.Nombre, $app.Tipo, $detalle)
+    }
+    else {
+        Write-Host ('{0}: {1} ({2})' -f $estado, $app.Nombre, $app.Tipo)
+    }
+}
+
+try {
+    $restantes = @(
+        Get-AppxPackage -AllUsers -PackageTypeFilter Bundle
+        Get-AppxPackage -AllUsers -PackageTypeFilter Main
+    )
+    $provisionadosRestantes = @(Get-AppxProvisionedPackage -Online)
+    foreach ($fila in $resultados) {
+        if ($fila.Estado -ne 'Eliminado' -and $fila.Estado -ne 'Ya eliminado') { continue }
+        if ($fila.Tipo -eq 'Provisionado') {
+            $sigue = @($provisionadosRestantes | Where-Object { $_.PackageName -eq $fila.Paquete }).Count -gt 0
+        }
+        else {
+            $sigue = @($restantes | Where-Object { $_.Name -eq $fila.Nombre }).Count -gt 0
+        }
+        if ($sigue) {
+            $fila.Estado = 'Sigue detectado'
+            $fila.Detalle = 'El paquete aun aparece tras la eliminacion. Revisa la salida de PowerShell y vuelve a ejecutar tras reiniciar.'
+            Write-Warning ('Sigue detectado: {0} ({1})' -f $fila.Nombre, $fila.Tipo)
+        }
+    }
+}
+catch {
+    Write-Warning ('No se pudo verificar el resultado: {0}' -f $_.Exception.Message)
+    foreach ($fila in $resultados) {
+        if ($fila.Estado -eq 'Eliminado' -or $fila.Estado -eq 'Ya eliminado') {
+            $fila.Estado = 'Sin verificar'
+            $fila.Detalle = $_.Exception.Message
+        }
+    }
 }
 
 $resultados | Export-Csv -LiteralPath $resultado -NoTypeInformation -Encoding UTF8
-$errores = @($resultados | Where-Object { $_.Estado -eq 'Error' }).Count
-Write-Host ('Resultado: {0}. Errores: {1}.' -f $resultado, $errores)
+$pendientes = @($resultados | Where-Object { $_.Estado -ne 'Eliminado' -and $_.Estado -ne 'Ya eliminado' }).Count
+Write-Host ('Resultado: {0}. Paquetes no eliminados o sin verificar: {1}.' -f $resultado, $pendientes)
 Write-Host 'Reinicia Windows para comprobar el resultado. Office de escritorio se desinstala manualmente desde Aplicaciones y caracteristicas.'
-if ($errores -gt 0) { exit 1 }
+if ($pendientes -gt 0) { exit 1 }
