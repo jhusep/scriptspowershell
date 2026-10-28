@@ -240,9 +240,12 @@ if ($Restaurar) {
         Start-Service SysMain -ErrorAction SilentlyContinue
         Set-Service WSearch -StartupType Automatic -ErrorAction SilentlyContinue
     }
-    $updateKey = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
-    Remove-ItemProperty -Path $updateKey -Name AUOptions -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path $updateKey -Name NoAutoUpdate -ErrorAction SilentlyContinue
+    $updateBackup = Join-Path $env:ProgramData 'LaptopLigera\Actualizaciones\PoliticaOriginal.json'
+    if (-not (Test-Path -LiteralPath $updateBackup -PathType Leaf)) {
+        $updateKey = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+        Remove-ItemProperty -Path $updateKey -Name AUOptions -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path $updateKey -Name NoAutoUpdate -ErrorAction SilentlyContinue
+    }
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
     Log 'Restauracion terminada. Reinicia Windows.'
     if ($fallosRestauracion -gt 0) { exit 1 }
