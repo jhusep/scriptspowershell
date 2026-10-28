@@ -80,6 +80,26 @@ Tras ejecutar `-Aplicar`, revisa el resumen y el archivo `Resultado-*.csv` en `C
 
 Microsoft documenta la [desinstalacion de paquetes para todas las cuentas](https://learn.microsoft.com/en-us/powershell/module/appx/remove-appxpackage) y la [eliminacion del aprovisionamiento para cuentas nuevas](https://learn.microsoft.com/en-us/powershell/module/dism/remove-appxprovisionedpackage). Para Office de escritorio, sigue la [desinstalacion oficial de Microsoft 365 u Office](https://support.microsoft.com/en-us/office/lifecycle/officeinstall/uninstall-microsoft-365-or-office-from-a-pc).
 
+## Actualizar Windows 10 una vez y dejar las demas pendientes en modo manual
+
+[actualizar-windows10-manual.ps1](actualizar-windows10-manual.ps1) consulta Windows Update en el equipo, elige la actualizacion acumulativa de Windows 10 mas reciente **que ese equipo recibe** y descarga e instala solo ese paquete. Excluye vistas previas, .NET, controladores y actualizaciones de caracteristicas. Las demas actualizaciones no se instalan en esta ejecucion. Con `-Aplicar`, ademas configura Windows Update para **avisar antes de descargar** (`AUOptions=2`, `NoAutoUpdate=0`); las otras actualizaciones siguen pendientes y disponibles para instalacion manual. No las oculta ni elimina. Si el usuario inicia la descarga desde Configuracion, Windows puede instalar esas actualizaciones. Guarda la politica anterior, un plan y un registro en `C:\ProgramData\LaptopLigera\Actualizaciones`.
+
+Windows 10 Home y Pro 22H2 terminaron el soporte general en octubre de 2025. Las actualizaciones posteriores solo se ofrecen a equipos con el [programa ESU](https://learn.microsoft.com/en-us/windows/release-health/release-information) u otra edicion aun compatible; el script no evita esos requisitos. Tampoco puede completar una instalacion que ya estaba pendiente de reinicio, ni imponerse sobre una politica de empresa. La [configuracion de aviso manual](https://learn.microsoft.com/en-us/windows/deployment/update/waas-wu-settings) controla Windows Update, no las actualizaciones independientes de Microsoft Store o de otras aplicaciones.
+
+Abre Windows PowerShell **como administrador** y ejecuta cada linea por separado:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/jhusep/scriptspowershell/main/actualizar-windows10-manual.ps1' -OutFile "$env:USERPROFILE\Downloads\actualizar-windows10-manual.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\actualizar-windows10-manual.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\actualizar-windows10-manual.ps1" -Aplicar
+```
+
+La segunda linea solo muestra la actualizacion elegida y las demas pendientes. La tercera configura el modo manual e instala la elegida; no reinicia el equipo automaticamente. `optimizar-windows10.ps1 -Restaurar` conserva esta politica cuando detecta su respaldo. Si quieres devolver `AUOptions` y `NoAutoUpdate` a sus valores anteriores, ejecuta:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\actualizar-windows10-manual.ps1" -RestaurarPolitica
+```
+
 ## Controladores
 
 AMD recomienda instalar los controladores del fabricante del portatil para ambas GPU cuando se usan graficos conmutables. Si ya descargaste controladores `.inf` del fabricante en `C:\Drivers`, puedes instalarlos desde una consola de administrador con:
